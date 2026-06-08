@@ -33,10 +33,19 @@ async function run() {
 
     // "Hireloopdb" নামে database select করা হয়েছে
     const database = client.db(process.env.DB_NAME);
+    const userdb = client.db("HireloopUserDB");
 
     //  "jobposts" collection select করা হয়েছে
     const jobsCollection = database.collection("jobposts");
     // const bookingCollection = database.collection("booking");
+    const userCollection = userdb.collection("user");
+    // ===========================================================
+    // ================= all  users   API ===============
+    // ===========================================================
+    app.get("/api/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
 
     // ===========================================================
     // ================= Job post API ===============
