@@ -37,7 +37,9 @@ async function run() {
 
     //  "jobposts" collection select করা হয়েছে
     const jobsCollection = database.collection("jobposts");
-    // const bookingCollection = database.collection("booking");
+    const jobsApplicationCollection = database.collection("jobapplications");
+
+    const companyCollection = database.collection("company");
     const userCollection = userdb.collection("user");
     // ===========================================================
     // ================= all  users   API ===============
@@ -54,11 +56,15 @@ async function run() {
     app.get("/api/jobs", async (req, res) => {
       try {
         const companyId = req.query.companyId || "";
+        const recruiterId = req.query.recruiterId || "";
         const status = req.query.status || "";
 
         const query = {};
 
         // email filter (manage reqruiter job posts)
+        if (recruiterId) {
+          query.recruiterId = recruiterId;
+        }
         if (companyId) {
           query.companyId = companyId;
         }
@@ -70,6 +76,23 @@ async function run() {
         const result = await jobsCollection.find(query).toArray();
 
         res.json(result);
+      } catch (error) {
+        res.status(500).json({
+          error: "Internal Server Error",
+        });
+      }
+    });
+    app.get("/api/jobs/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const query = {
+          _id: new ObjectId(id),
+        };
+
+        const result = await jobsCollection.findOne(query);
+
+        res.send(result);
       } catch (error) {
         res.status(500).json({
           error: "Internal Server Error",
@@ -94,6 +117,85 @@ async function run() {
 
       const result = await jobsCollection.deleteOne(query);
 
+      res.send(result);
+    });
+
+    // ==========================job application API =================
+
+    app.post("/api/application", async (req, res) => {
+      const newApplication = {
+        ...req.body,
+        createdAt: new Date(),
+      };
+
+      const result = await jobsApplicationCollection.insertOne(newApplication);
+      res.send(result);
+    });
+
+    app.get("/api/application", async (req, res) => {
+      const query = {};
+
+      // Query parameters থেকে ডাটা নেওয়া হলো
+      const { applicantId, jobId } = req.query;
+
+      if (applicantId) {
+        query.applicantId = applicantId;
+      }
+      if (jobId) {
+        query.jobId = jobId;
+      }
+
+      // চলতি মাসের প্রথম দিন এবং শেষ দিন বের করার লজিক
+      const now = new Date();
+
+      // চলতি মাসের ১ম দিন (যেমন: 2026-06-01T00:00:00.000Z)
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // পরবর্তী মাসের ১ম দিন (যা চলতি মাসের শেষ দিন পর্যন্ত কাভার করবে)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+      // কুয়েরিতে মাসের ডেট রেঞ্জ ফিল্টার যোগ করা হলো
+      query.createdAt = {
+        $gte: startOfMonth.toISOString(), // বা সরাসরি startOfMonth অবজেক্ট (যদি ডাটাবেজে Date ফরম্যাটে থাকে)
+        $lt: endOfMonth.toISOString(),
+      };
+
+      try {
+        const cursor = jobsApplicationCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Server error", error });
+      }
+    });
+    // ===========================================================
+    // ================= company related API's ===============
+    // ===========================================================
+
+    app.get("/api/my/companies", async (req, res) => {
+      try {
+        const recruiterId = req.query.recruiterId || "";
+
+        const query = {};
+        if (recruiterId) {
+          query.recruiterId = recruiterId;
+        }
+
+        const result = await companyCollection.find(query).toArray();
+
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({
+          error: "Internal Server Error",
+        });
+      }
+    });
+
+    //  add a new company
+
+    app.post("/api/my/companies", async (req, res) => {
+      const newCompany = req.body;
+      const result = await companyCollection.insertOne(newCompany);
       res.send(result);
     });
 
